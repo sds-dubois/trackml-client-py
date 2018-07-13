@@ -14,8 +14,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import load_digits
 
 # initialize logger with model id and metric
-model_id = 3
-logger = TrackML({ "model_id": model_id, "metric": "accuracy" })
+model_id = 1
+logger = TrackML({ "model_id": model_id })
 
 # # or we could create a new model here
 # logger = TrackML()
@@ -43,9 +43,10 @@ candidates = list(ParameterSampler(param_dist, n_iter_search, random_state))
 
 for candidate in candidates:
     clf = RandomForestClassifier(n_estimators=20, **candidate)
-    cv_scores = cross_val_score(clf, X, y, cv=5)
-    s = np.mean(cv_scores)
-    logid = logger.log(candidate, s) # if model_id / metric already set
-    # logid = logger.log(candidate, s, metric="accuracy", model_id=3) # otherwise
+    accuracy = np.mean(cross_val_score(clf, X, y, cv=5))
+    precision = np.mean(cross_val_score(clf, X, y, cv=5, scoring="precision_macro"))
+    scores = {"accuracy": accuracy, "precision_macro": precision}
+    logid = logger.log(candidate, scores) # if model_id already set
+    # logid = logger.log(candidate, scores, model_id=1) # otherwise
 
 print("See results at {}/models/{}".format(logger.get_base_url(), model_id))

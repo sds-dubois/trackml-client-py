@@ -37,21 +37,18 @@ class TrackML(object):
     def __init__(self, logging_params=None, base_url="http://localhost:3000/"):
         self.client = Client(base_url)
         if logging_params is not None:
-            self.set_logger(logging_params.get("model_id", None), logging_params.get("metric", None))
+            self.set_logger(logging_params.get("model_id", None))
 
     def _post_and_assert(self, path, params):
         response = self.client.post(path, **params)
         assert response["success"]
         return int(response["id"])
 
-    # def _serialize_parameters(self, parameters):
-    #     return str(parameters)
-
     def get_base_url(self):
         return self.client.base_url
     
-    def set_logger(self, model_id, metric):
-        self.logging_params = {"experiment[model_id]": model_id, "experiment[metric]": metric}
+    def set_logger(self, model_id):
+        self.logging_params = {"experiment[model_id]": model_id}
 
     def reset_logger(self):
         self.logging_params = None
@@ -68,16 +65,13 @@ class TrackML(object):
         self.logging_params = None
         return response
 
-    def log(self, parameters, score, metric=None, model_id=None):
+    def log(self, parameters, scores, model_id=None):
         p = {} if self.logging_params is None else deepcopy(self.logging_params)
-
-        if metric is not None:
-            p["experiment[metric]"] = metric
 
         if model_id is not None:
             p["experiment[model_id]"] = model_id
 
         p["experiment[parameters]"] = parameters
-        p["experiment[score]"] = score
+        p["experiment[scores]"] = scores
 
         return self._post_and_assert("api/create_experiment", p)
