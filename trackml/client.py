@@ -1,7 +1,6 @@
 import json
 from urllib3 import connection_from_url
 from urllib import urlencode
-from copy import deepcopy
 
 
 class Client(object):
@@ -33,45 +32,109 @@ class Client(object):
 
 
 class TrackML(object):
+    """
+    Client for TrackML: https://github.com/sds-dubois/trackML
+    """
 
-    def __init__(self, logging_params=None, base_url="http://localhost:3000/"):
+    def __init__(self, model_id=None, base_url="http://localhost:3000/", cache_size=20):
+        """
+        Initialize the client.
+        If :model_id: is passed, this will be used as the default value when logging experiments.
+        :base_url: is the address of the server hosting the TrackML app.
+        """
         self.client = Client(base_url)
-        if logging_params is not None:
-            self.set_logger(logging_params.get("model_id", None))
+        self.cache = []
+        self.cache_size = cache_size
+        self.assert_success = True
+        self.logging_params = None
+        if model_id is not None:
+            self.set_model(model_id)
 
     def _post_and_assert(self, path, params):
+        """
+        Post request with parameters :params: to the API path :path:.
+        Asserts the request is successful if `self.assert_success == True`.
+        Returns the id in the response.
+        """
         response = self.client.post(path, **params)
-        assert response["success"]
-        return int(response["id"])
+        if self.assert_success:
+            assert response["success"]
+        return int(response.get("id", 0))
 
     def get_base_url(self):
+        """
+        Returns the base url used by the API client
+        """
         return self.client.base_url
     
-    def set_logger(self, model_id):
-        self.logging_params = {"experiment[model_id]": model_id}
-
-    def reset_logger(self):
-        self.logging_params = None
-
     def new_model(self, name, project_id, description=None):
+        """
+        Create a model named :name: for project with id :project_id:.
+        Can add a optional :description:.
+        This returns the id of the model created.
+        """
         p = { "model[name]": name, "model[project_id]": project_id, "model[comment]": description }
         response = self._post_and_assert("api/create_model", p)
         self.logging_params = None
         return response
 
     def new_project(self, name):
+        """
+        Create a project named :name:.
+        This returns the id of the project created.
+        """
         p = { "project[name]": name }
         response = self._post_and_assert("api/create_project", p)
         self.logging_params = None
         return response
 
+    def set_model(self, model_id):
+        """
+        Set a default value for the :model_id:
+        """
+        self.logging_params = {"experiment[model_id]": model_id}
+
+    def reset_model(self):
+        """
+        Reset the :model_id: default value
+        """
+        self.logging_params = None
+
     def log(self, parameters, scores, model_id=None):
-        p = {} if self.logging_params is None else deepcopy(self.logging_params)
-
-        if model_id is not None:
-            p["experiment[model_id]"] = model_id
-
-        p["experiment[parameters]"] = parameters
-        p["experiment[scores]"] = scores
-
+        """
+        Log this experiment to the server.
+        If :model_id: is None, this will use the default value set 
+        at initializeation or with set_model_id.
+        """
+        p = {
+            "experiment[model_id]": model_id or self.logging_params.get("experiment[model_id]"),
+            "experiment[parameters]": parameters,
+            "experiment[scores]": scores,
+        }
         return self._post_and_assert("api/create_experiment", p)
+
+    def deferred_log(self, parameters, scores, model_id=None):
+        """
+        Store exeperiment in cache.
+        If cache is full, this will log the current cache to the server.
+        """
+        self.cache.append({
+            "model_id": model_id or self.logging_params.get("experiment[model_id]"),
+            "parameters": parameters,
+            "scores": scores
+        })
+
+        if len(self.cache) >= self.cache_size:
+            self.send_cache()
+
+
+    def send_cache(self):
+        """
+        Log all experiments in the cache to the server.
+        """
+        if len(self.cache) == 0:
+            return True
+        else:
+            response = self._post_and_assert("api/create_experiments", {"experiments": self.cache})
+            self.cache = []
+            return response
