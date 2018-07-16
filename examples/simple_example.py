@@ -15,7 +15,7 @@ from sklearn.datasets import load_digits
 
 ## initialize logger with model id and metric
 model_id = 1
-logger = TrackML({ "model_id": model_id })
+logger = TrackML(model_id=model_id)
 
 ## or we could create a new model here
 # logger = TrackML()
