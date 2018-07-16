@@ -36,7 +36,7 @@ class TrackML(object):
     Client for TrackML: https://github.com/sds-dubois/trackML
     """
 
-    def __init__(self, model_id=None, base_url="http://localhost:3000/", cache_size=20):
+    def __init__(self, model_id=None, base_url="http://localhost:3000/", cache_size=20, assert_success=False):
         """
         Initialize the client.
         If :model_id: is passed, this will be used as the default value when logging experiments.
@@ -45,7 +45,7 @@ class TrackML(object):
         self.client = Client(base_url)
         self.cache = []
         self.cache_size = cache_size
-        self.assert_success = True
+        self.assert_success = assert_success
         self.logging_params = None
         if model_id is not None:
             self.set_model(model_id)
